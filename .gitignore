@@ -1,0 +1,23 @@
+# C
+preprocess/build/
+
+# Go
+service/bin/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+web/node_modules/
+web/dist/
+
+# Local data
+data/
+
+.vscode/
