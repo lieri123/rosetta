@@ -1,0 +1,22 @@
+[project]
+name = "rosetta-rescorer"
+version = "0.1.0"
+description = "Noisy-channel post-processing for handwriting recognition output"
+requires-python = ">=3.9"
+# No runtime dependencies on purpose. The service is standard library only, so
+# it installs anywhere Python does. matplotlib is optional and used solely to
+# draw the CER curves the eval harness already computes.
+dependencies = []
+
+[project.optional-dependencies]
+plots = ["matplotlib>=3.5"]
+
+[project.scripts]
+rosetta-rescorer = "rosetta_rescorer.__main__:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["rosetta_rescorer"]
