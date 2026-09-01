@@ -301,6 +301,13 @@ func (s *Server) handlePageImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errors.New("no image for this page"))
 		return
 	}
+
+	// This URL is mutable: a page opened while it is still queued serves the
+	// original photo, and the same URL serves the cleaned-up version once
+	// preprocessing has run. Without this the browser holds on to the first
+	// one and the reader is left comparing their text against an image the
+	// recogniser never saw.
+	w.Header().Set("Cache-Control", "no-cache")
 	http.ServeFile(w, r, path)
 }
 

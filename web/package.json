@@ -1,0 +1,21 @@
+{
+  "name": "rosetta-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Editor for handwriting recognition output, with confidence underlines",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.7.0",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.34.0"
+  }
+}

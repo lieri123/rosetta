@@ -74,12 +74,36 @@ int estimate_skew(const Image *binary, double limit_deg, double *angle_deg)
     for (size_t i = 0; i < (size_t)small.w * small.h; i++)
         small.px[i] = small.px[i] < 200 ? 0 : 255;
 
-    /* Coarse sweep, then two refinement passes around the winner. Sweeping the
-     * whole range at 0.05 degrees would be 20x the work for the same answer. */
+    /* Blank a border band before measuring. Perspective rectification leaves a
+     * hard seam where the warped page meets the fill, and that seam is a
+     * perfectly horizontal line hundreds of pixels long -- which is to say, a
+     * large spurious peak at exactly zero degrees, sitting right where a page
+     * that needs no correction would peak. It cost this estimator a real 2.5
+     * degree skew before it was removed. */
+    int margin_x = small.w / 50 + 1;
+    int margin_y = small.h / 50 + 1;
+    for (int y = 0; y < small.h; y++) {
+        int in_band = (y < margin_y || y >= small.h - margin_y);
+        for (int x = 0; x < small.w; x++) {
+            if (in_band || x < margin_x || x >= small.w - margin_x)
+                small.px[(size_t)y * small.w + x] = 255;
+        }
+    }
+
+    /* Coarse sweep, then two refinement passes around the winner.
+     *
+     * The coarse step has to be finer than the peak is wide, or the sweep
+     * steps over the answer. The peak width is set by the page: rotating by
+     * delta smears each line across w * tan(delta) pixels, and the profile
+     * flattens once that approaches a stroke width -- about a degree on a
+     * page this size. A one degree step (the obvious choice, and the first one
+     * tried here) straddled a real 2.5 degree skew and reported nothing. A
+     * quarter degree leaves margin, and the sweep is cheap: it is one pass
+     * over the ink of a downscaled copy per angle. */
     double best_angle = 0.0;
     double best_score = -1.0;
 
-    for (double a = -limit_deg; a <= limit_deg + 1e-9; a += 1.0) {
+    for (double a = -limit_deg; a <= limit_deg + 1e-9; a += 0.25) {
         double sc = skew_profile_score(&small, a);
         if (sc > best_score) {
             best_score = sc;
@@ -87,10 +111,9 @@ int estimate_skew(const Image *binary, double limit_deg, double *angle_deg)
         }
     }
 
-    double step = 0.25;
-    for (int pass = 0; pass < 2; pass++) {
-        double lo = best_angle - step * 4;
-        double hi = best_angle + step * 4;
+    for (double step = 0.05; step >= 0.05; step /= 5.0) {
+        double lo = best_angle - 0.25;
+        double hi = best_angle + 0.25;
         for (double a = lo; a <= hi + 1e-9; a += step) {
             if (a < -limit_deg || a > limit_deg) continue;
             double sc = skew_profile_score(&small, a);
@@ -99,7 +122,6 @@ int estimate_skew(const Image *binary, double limit_deg, double *angle_deg)
                 best_angle = a;
             }
         }
-        step /= 5.0; /* 0.25 -> 0.05 degrees */
     }
 
     img_free(&small);

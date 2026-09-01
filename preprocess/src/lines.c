@@ -27,6 +27,15 @@ LineParams line_params_default(const Image *binary)
     if (p.max_thickness < 3) p.max_thickness = 3;
     if (p.max_thickness > 14) p.max_thickness = 14;
     p.min_fill = 0.75;
+    /* A stroke drawn through words is long relative to how thick it is. Two or
+     * three letter parts that happen to line up are not: on a synthetic page
+     * the real strikethrough came out at 128:1 and the false positives at 10:1
+     * to 23:1. This is a guard rather than the decision -- the real backstop
+     * is in the service, where a rule only deletes a word if it also bisects
+     * that word's box at mid-height. Both exist because a false strikethrough
+     * silently deletes text the writer wanted to keep, which is far worse than
+     * leaving a crossed-out word in. */
+    p.min_aspect = 18.0;
     p.max_lines = 64;
     return p;
 }
@@ -139,6 +148,7 @@ static void extract_runs(const Image *im, double slope, double intercept,
         qsort(thick, (size_t)nthick, sizeof(int), cmp_int);
         int median = thick[nthick / 2];
         if (median > p->max_thickness) continue;
+        if (median > 0 && (double)length / (double)median < p->min_aspect) continue;
 
         LineSeg seg;
         seg.x0 = start;
@@ -221,6 +231,7 @@ int detect_horizontal_rules(const Image *binary, const LineParams *params, LineS
     if (p.min_length <= 0) p.min_length = line_params_default(binary).min_length;
     if (p.max_thickness <= 0) p.max_thickness = 4;
     if (p.min_fill <= 0.0) p.min_fill = 0.75;
+    if (p.min_aspect <= 0.0) p.min_aspect = 18.0;
     if (p.max_lines <= 0) p.max_lines = 64;
 
     int ntheta = (int)(2 * p.max_angle_deg / p.angle_step) + 1;
@@ -244,9 +255,15 @@ int detect_horizontal_rules(const Image *binary, const LineParams *params, LineS
         slopes[t] = tan(angle * M_PI / 180.0);
     }
 
-    for (int y = 0; y < binary->h; y++) {
+    /* Ignore a band around the edge. After perspective rectification the seam
+     * where the warped page meets the fill is a long horizontal run of ink,
+     * and nothing about it is a pen stroke. */
+    int border_x = binary->w / 50 + 1;
+    int border_y = binary->h / 50 + 1;
+
+    for (int y = border_y; y < binary->h - border_y; y++) {
         const unsigned char *row = binary->px + (size_t)y * binary->w;
-        for (int x = 0; x < binary->w; x++) {
+        for (int x = border_x; x < binary->w - border_x; x++) {
             if (row[x] >= INK_LEVEL) continue;
             for (int t = 0; t < ntheta; t++) {
                 int c = (int)(y - slopes[t] * x + 0.5) + margin;

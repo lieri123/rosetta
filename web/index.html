@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rosetta</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <h1>Rosetta</h1>
+      <p class="tagline">Handwritten pages, as text you can post.</p>
+      <div class="masthead-actions">
+        <label class="upload">
+          <input type="file" id="file" accept="image/png,image/jpeg,application/pdf" hidden />
+          <span>Add a page</span>
+        </label>
+        <button id="copy" class="ghost" disabled>Copy text</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <h2>Documents</h2>
+        <ul id="documents" class="documents"></ul>
+      </aside>
+
+      <section class="workspace">
+        <div id="status" class="status" hidden></div>
+
+        <div class="editor-pane">
+          <div class="pane-header">
+            <div id="page-tabs" class="page-tabs"></div>
+            <div class="legend">
+              <span class="legend-item"><i class="swatch red"></i>unreadable</span>
+              <span class="legend-item"><i class="swatch amber"></i>doubtful in context</span>
+              <button id="toggle-image" class="ghost small">Show page</button>
+            </div>
+          </div>
+          <div id="editor" class="editor"></div>
+          <div class="pane-footer">
+            <span id="counts" class="counts"></span>
+            <span id="save-state" class="save-state"></span>
+          </div>
+        </div>
+
+        <div id="image-pane" class="image-pane" hidden>
+          <img id="page-image" alt="The page this text came from" />
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

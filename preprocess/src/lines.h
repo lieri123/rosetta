@@ -35,6 +35,7 @@ typedef struct {
     int min_length;       /* shortest run to report; <=0 derives from width */
     int max_thickness;    /* thickest stroke still a rule; <=0 derives */
     double min_fill;      /* fraction of the run that must be ink; default 0.75 */
+    double min_aspect;    /* least length:thickness ratio to report; default 18 */
     int max_lines;        /* cap on reported segments; default 64 */
 } LineParams;
 

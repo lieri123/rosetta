@@ -444,6 +444,44 @@ static void test_no_rules_on_plain_text(void)
     img_free(&page.image);
 }
 
+static void test_stubby_marks_are_not_rules(void)
+{
+    current_test = "stubby_marks_are_not_rules";
+
+    /* A short, thick horizontal blob -- the shape two or three letter parts
+     * make when they happen to line up. It is horizontal ink of an acceptable
+     * thickness, so only the length-to-thickness ratio separates it from a pen
+     * stroke drawn through a word. */
+    /* Page-shaped: the thickness limit is derived from the image height, and
+     * a 200px-tall "page" would rule out strokes a real page allows. */
+    Image page = img_new(800, 1000);
+    memset(page.px, 255, (size_t)page.w * page.h);
+    for (int y = 300; y < 306; y++)
+        for (int x = 200; x < 260; x++)
+            page.px[(size_t)y * page.w + x] = 0;
+
+    LineParams lp = line_params_default(&page);
+    LineSegs segs;
+    CHECK(detect_horizontal_rules(&page, &lp, &segs) == 0, "detection failed");
+    CHECK(segs.count == 0, "a 60x6 blob (10:1) was reported as a rule");
+    linesegs_free(&segs);
+
+    /* The same thickness drawn the length of a line is a strikethrough. */
+    for (int y = 600; y < 606; y++)
+        for (int x = 100; x < 700; x++)
+            page.px[(size_t)y * page.w + x] = 0;
+
+    CHECK(detect_horizontal_rules(&page, &lp, &segs) == 0, "detection failed");
+    CHECK(segs.count == 1, "want the long stroke reported, got %d segment(s)", segs.count);
+    if (segs.count == 1) {
+        CHECK(segs.items[0].x1 - segs.items[0].x0 > 500,
+              "reported segment is only %.0f px long", segs.items[0].x1 - segs.items[0].x0);
+    }
+
+    linesegs_free(&segs);
+    img_free(&page);
+}
+
 static void test_downscale_preserves_brightness(void)
 {
     current_test = "downscale_preserves_brightness";
@@ -485,6 +523,7 @@ int main(void)
     test_scanned_page_is_left_alone();
     test_strikethrough_detection();
     test_no_rules_on_plain_text();
+    test_stubby_marks_are_not_rules();
     test_downscale_preserves_brightness();
 
     if (failures) {
