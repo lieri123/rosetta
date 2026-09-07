@@ -1,0 +1,31 @@
+# systemd, for when Docker is more machinery than you want.
+#
+#   sudo cp deploy/*.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rosetta-rescorer rosetta
+
+[Unit]
+Description=Rosetta rescorer (noisy-channel post-processor)
+After=network.target
+
+[Service]
+Type=simple
+User=rosetta
+Group=rosetta
+WorkingDirectory=/opt/rosetta/rescorer
+ExecStart=/usr/bin/python3 -m rosetta_rescorer --db /var/lib/rosetta/rosetta.db serve --port 8801
+Restart=on-failure
+RestartSec=5
+
+# It reads and writes one database and talks to nothing on the network beyond
+# the local service, so it gets nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/rosetta
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

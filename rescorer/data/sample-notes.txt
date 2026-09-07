@@ -1,0 +1,36 @@
+The unifying idea is a noisy channel post processor. Recognition engines give you
+more than text, they give per token confidence and often alternative candidates.
+Almost nobody uses those. If you do, you can treat the API output as a noisy
+observation and recover the most likely true text.
+Every correction I make in the editor gives an aligned pair of predicted and
+corrected text. Running Levenshtein alignment over that pair extracts character
+level substitutions, and accumulating those substitutions builds a confusion
+matrix. The matrix is personal. It shows my specific failure modes rather than
+some average writer's failure modes.
+The personal lexicon comes from the corrected text itself. It holds my
+vocabulary, the names I write down, the jargon I actually use, and the
+abbreviations that no dictionary would ever contain.
+At inference time the decoder takes low confidence tokens, generates candidates
+by applying inverse confusions, scores each candidate against the lexicon and
+the language prior, and substitutes only when the margin is decisive.
+This gives the adaptation story and the beat the baseline story at once. One
+system, two claims. The same rescorer that adapts to my handwriting is the
+thing that pushes the error rate below the raw API.
+Preprocessing happens before any of this. Perspective correction, adaptive
+thresholding and deskewing all run against raw pixel buffers in a small C
+binary that the service shells out to.
+The service layer handles the HTTP API, splits PDF pages, runs a job queue with
+a worker pool, calls the recognition API, and streams progress back to the
+browser over server sent events.
+Storage is a single SQLite file. Documents, corrections, the confusion matrix
+and the confidence spans all live there. It will comfortably handle years of my
+own notes and there is nothing to operate.
+The editor draws a wavy underline under every token the system is unsure about.
+Red means the recogniser could barely read the ink. Amber means the recogniser
+was confident but the language model finds the token improbable in context, or
+the rescorer had a close call between two candidates. Everything else is left
+clean, because underlining everything would be the same as underlining nothing.
+Strikethrough detection is the one piece of hard layout work worth taking. Find
+horizontal line segments, check whether one bisects a text bounding box at mid
+height, and delete the text underneath it. It is contained, it is visually
+obvious in a demo, and it is a day of work rather than a week.

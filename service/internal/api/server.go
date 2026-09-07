@@ -347,7 +347,11 @@ func (s *Server) handleCorrection(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.Text == page.Text {
-		writeJSON(w, http.StatusOK, map[string]any{"learned": 0, "message": "no change"})
+		// Same keys as the normal path. A response whose shape depends on the
+		// outcome makes every caller write two parsers.
+		writeJSON(w, http.StatusOK, map[string]any{
+			"learned": 0, "pairs": 0, "warning": "", "message": "no change",
+		})
 		return
 	}
 

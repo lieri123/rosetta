@@ -1,0 +1,51 @@
+# The Go service, plus the C preprocessor it shells out to and the web assets
+# it serves. Three build stages so none of the toolchains end up in the image
+# that actually runs.
+
+# --- the C preprocessor -----------------------------------------------------
+FROM docker.io/library/gcc:13 AS preprocess
+WORKDIR /src
+COPY preprocess/ ./preprocess/
+RUN make -C preprocess all
+
+# --- the web assets ---------------------------------------------------------
+FROM docker.io/library/node:22-slim AS web
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json* ./
+RUN npm install --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+# --- the service ------------------------------------------------------------
+FROM docker.io/library/golang:1.24 AS service
+WORKDIR /src/service
+COPY service/go.mod service/go.sum ./
+RUN go mod download
+COPY service/ ./
+# CGO off: the SQLite driver is pure Go, so this links static and runs on a
+# distroless base with nothing else in the image.
+RUN CGO_ENABLED=0 go build -trimpath -o /out/rosetta ./cmd/rosetta
+
+# --- runtime ----------------------------------------------------------------
+FROM docker.io/library/debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+# poppler-utils is here for pdftoppm: PDF page splitting shells out to it
+# rather than embedding a PDF renderer.
+
+WORKDIR /app
+COPY --from=service /out/rosetta /app/rosetta
+COPY --from=preprocess /src/preprocess/build/rosetta-preprocess /app/bin/rosetta-preprocess
+COPY --from=web /src/web/dist /app/web/dist
+
+ENV ROSETTA_ADDR=0.0.0.0:8800 \
+    ROSETTA_DB=/data/rosetta.db \
+    ROSETTA_DATA_DIR=/data \
+    ROSETTA_STATIC_DIR=/app/web/dist \
+    ROSETTA_PREPROCESS_BIN=/app/bin/rosetta-preprocess \
+    ROSETTA_RESCORER_URL=http://rescorer:8801
+
+EXPOSE 8800
+VOLUME ["/data"]
+ENTRYPOINT ["/app/rosetta"]

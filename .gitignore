@@ -18,6 +18,6 @@ web/node_modules/
 web/dist/
 
 # Local data
-data/
+/data/
 
 .vscode/

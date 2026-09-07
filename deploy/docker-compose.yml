@@ -1,0 +1,61 @@
+# Two containers on one VPS. Not Kubernetes, and not three databases.
+#
+# Both containers mount the same volume and open the same SQLite file: the Go
+# service owns documents, pages and tokens, the rescorer owns the models it
+# learns. WAL journalling means neither blocks the other on a read. This works
+# because they are on one machine sharing one filesystem -- if these ever needed
+# to run on separate hosts, the shared file is the first thing that would have
+# to go.
+
+name: rosetta
+
+services:
+  rescorer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.rescorer
+    restart: unless-stopped
+    volumes:
+      - data:/data
+    # Not published to the host: the rescorer is reachable only from the
+    # service, over the compose network.
+    expose:
+      - "8801"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8801/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+    restart: unless-stopped
+    depends_on:
+      rescorer:
+        condition: service_healthy
+    volumes:
+      - data:/data
+    ports:
+      # Bound to loopback: put a TLS terminator in front rather than exposing
+      # this directly. There is no authentication in the service, and these are
+      # your private notes.
+      - "127.0.0.1:8800:8800"
+    environment:
+      ROSETTA_PROVIDER: ${ROSETTA_PROVIDER:-mock}
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
+      AZURE_VISION_ENDPOINT: ${AZURE_VISION_ENDPOINT:-}
+      AZURE_VISION_KEY: ${AZURE_VISION_KEY:-}
+      ROSETTA_WORKERS: ${ROSETTA_WORKERS:-4}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8800/api/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  data:

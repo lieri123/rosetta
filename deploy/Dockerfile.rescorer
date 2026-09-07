@@ -1,0 +1,18 @@
+# The Python rescorer. No runtime dependencies -- the service is standard
+# library only -- so this is a slim base and a copy.
+FROM docker.io/library/python:3.12-slim
+
+WORKDIR /app
+COPY rescorer/ ./
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+EXPOSE 8801
+VOLUME ["/data"]
+
+# 0.0.0.0 so the service container can reach it. Nothing outside the compose
+# network should be able to: the rescorer has no authentication, because it
+# only ever expected to hear from the service on the same host.
+ENTRYPOINT ["python", "-m", "rosetta_rescorer", "--db", "/data/rosetta.db", "serve", \
+            "--host", "0.0.0.0", "--port", "8801"]

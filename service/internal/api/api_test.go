@@ -391,9 +391,21 @@ func TestNoChangeIsNotACorrection(t *testing.T) {
 		"application/json", bytes.NewReader(body))
 	defer response.Body.Close()
 
+	var result map[string]any
+	json.NewDecoder(response.Body).Decode(&result)
+
 	count, _ := h.store.CountCorrections(context.Background())
 	if count != 0 {
 		t.Errorf("saving unchanged text recorded %d corrections", count)
+	}
+
+	// Same keys as the normal path: a response whose shape depends on the
+	// outcome makes every caller write two parsers, and the demo script
+	// crashed on exactly this.
+	for _, key := range []string{"learned", "pairs", "warning"} {
+		if _, ok := result[key]; !ok {
+			t.Errorf("no-change response is missing %q: %v", key, result)
+		}
 	}
 }
 

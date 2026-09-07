@@ -1,0 +1,32 @@
+[Unit]
+Description=Rosetta handwriting service
+After=network.target rosetta-rescorer.service
+Wants=rosetta-rescorer.service
+
+[Service]
+Type=simple
+User=rosetta
+Group=rosetta
+WorkingDirectory=/opt/rosetta
+ExecStart=/opt/rosetta/bin/rosetta \
+    -db /var/lib/rosetta/rosetta.db \
+    -data /var/lib/rosetta \
+    -static /opt/rosetta/web/dist \
+    -preprocess /opt/rosetta/bin/rosetta-preprocess \
+    -addr 127.0.0.1:8800
+Restart=on-failure
+RestartSec=5
+
+# Credentials belong in a file readable only by this unit, not in the unit
+# itself, where they would end up in `systemctl cat` output and in any backup
+# of /etc.
+EnvironmentFile=-/etc/rosetta/env
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/rosetta
+
+[Install]
+WantedBy=multi-user.target
