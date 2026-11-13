@@ -431,6 +431,7 @@ def sweep_substitution_margin(
                 surprisal_bits=original.surprisal_bits,
                 close_call_nats=original.close_call_nats,
                 substitute_nats=value,
+                unsettled_bits=original.unsettled_bits, 
                 prior_weight=original.prior_weight,
                 max_candidates=original.max_candidates,
             )

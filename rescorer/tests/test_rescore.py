@@ -170,5 +170,35 @@ class TestOutput(unittest.TestCase):
         self.assertEqual(scored[2].tier, TIER_NONE)
 
 
+def build2():
+    lm = LanguageModel()
+    notes = CORPUS*100
+    lm.add_text(notes)
+    lexicon = Lexicon()
+    lexicon.add_text(CORPUS)
+    confusion = ConfusionModel()
+    
+    return Rescorer(confusion, lexicon, lm, Thresholds())
+
+
+
+class TestNewWordsAsNotesGrow(unittest.TestCase):
+    def test_a_confident_new_word_stays_unmarked_however_large_the_notes(self):
+        # Every word the language model has never seen gets the same floor
+        # surprisal, and that floor rises as the notes grow. A fixed bit
+        # threshold therefore flags nothing on small notes and *every* new
+        # word -- names, jargon -- once the notes are large enough.
+        notes = CORPUS * 100   # about 5,000 words: the floor is now above 15 bits
+        lm = LanguageModel()
+        lm.add_text(notes)
+        lexicon = Lexicon()
+        lexicon.add_text(notes)
+        rescorer = Rescorer(ConfusionModel(), lexicon, lm, Thresholds())
+
+        scored = rescorer.rescore([Token("the", 0.99), Token("Sauvola", 0.96)])
+
+        self.assertGreater(scored[1].surprisal, 15.0)   # the trap is armed...
+        self.assertEqual(scored[1].tier, TIER_NONE)     # ...and not sprung
+
 if __name__ == "__main__":
     unittest.main()
