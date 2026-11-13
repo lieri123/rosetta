@@ -123,9 +123,14 @@ why it exists:
   substitutions helping 14 times and hurting zero across three seeds, with CER
   rising monotonically above 1.0 — the instinctive setting was leaving two
   thirds of the good corrections unmade. Now 1.0.
-- **Amber threshold** is 15 bits of surprisal. Below 12 the tier fires on 80% of
-  tokens and precision collapses to 0.27. A mark on everything is a mark on
-  nothing.
+- **Amber has three triggers.** A word is marked amber when the rescorer
+  substituted it (the winner beat the reading by at least substitute_nats,
+  1.0), when the top two candidates were within close_call_nats (1.5) of each
+  other, or when recognition confidence was middling (below 0.86) and the
+  language model gave the word weak support (above unsettled_bits, 9 bits of
+  surprisal). Anything below 0.55 confidence is red first.
+
+-  **The "improbable in context" amber is off by default.** It used to fire above 15 bits of surprisal, but every word the language model has never seen gets the same floor surprisal, and that floor rises with the size of the notes: 13.4 bits at ~650 words, 15.7 at ~3,600. So a fixed threshold never fired on small notes and fired on *every* new word on large ones. It can still be switched on with Thresholds(surprisal_bits=...).
 
 ---
 

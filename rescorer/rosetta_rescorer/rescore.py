@@ -56,20 +56,11 @@ class Thresholds:
     # At or above this, the recogniser is trusted unless the language model
     # actively objects.
     settled_confidence: float = 0.86
-    # Above this surprisal (in bits) a token is improbable enough in context to
-    # be worth a second look, even at high recognition confidence.
-    surprisal_bits: float = 15.0
+    surprisal_bits: Optional[float] = None
     # If the top two candidates are within this many nats, the rescorer had a
     # close call and should say so rather than silently picking one.
     close_call_nats: float = 1.5
-    # A candidate must beat the recogniser's own output by this much before it
-    # replaces it. Swept by the eval harness: on synthetic corruptions of the
-    # sample corpus, substitutions helped 14 times and hurt zero across three
-    # seeds, and the CER curve rises monotonically from here -- 3.0, the
-    # instinctive setting, left two thirds of the good corrections unmade. Low
-    # but not zero: the margin still has to mean something, and this is fitted
-    # against a synthetic error model, so re-run the sweep once real
-    # corrections exist.
+    unsettled_bits: float = 9.0
     substitute_nats: float = 1.0
     # Weight on the language prior relative to the channel model.
     prior_weight: float = 1.0
@@ -297,7 +288,7 @@ class Rescorer:
         if substituted:
             return TIER_AMBER, f"rescored from {observed!r}"
 
-        if surprisal > limits.surprisal_bits:
+        if limits.surprisal_bits is not None and surprisal > limits.surprisal_bits:
             return TIER_AMBER, "improbable in context"
 
         if is_new and margin < limits.close_call_nats:
@@ -305,7 +296,7 @@ class Rescorer:
 
         # Middling confidence with nothing else against it: the recogniser is
         # not sure, and neither are we, but there is no better story to tell.
-        if confidence < limits.settled_confidence and surprisal > limits.surprisal_bits * 0.6:
+        if confidence < limits.settled_confidence and surprisal > limits.unsettled_bits:
             return TIER_AMBER, "unsettled recognition and weak context support"
 
         return TIER_NONE, ""
