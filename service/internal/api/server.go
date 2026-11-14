@@ -401,7 +401,7 @@ func ChangedLines(before, after string) []rescore.Pair {
 	afterLines := strings.Split(after, "\n")
 
 	if len(beforeLines) != len(afterLines) {
-		if strings.TrimSpace(before) == "" {
+		if strings.TrimSpace(before) == "" || strings.TrimSpace(after) == "" {
 			return nil
 		}
 		return []rescore.Pair{{Predicted: before, Corrected: after}}

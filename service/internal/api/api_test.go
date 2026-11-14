@@ -598,3 +598,11 @@ func TestHealthReportsProviderAndRescorer(t *testing.T) {
 		t.Errorf("unexpected health: %+v", health)
 	}
 }
+
+func TestChangedLinesIgnoresAPageThatWasCleared(t *testing.T){
+
+	pairs := ChangedLines("the noisy channel\nmodel treats", "")
+	if len(pairs) != 0{
+		t.Fatalf("clearing a page is not a correction")
+	}
+}
