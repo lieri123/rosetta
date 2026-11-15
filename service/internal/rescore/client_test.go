@@ -37,6 +37,33 @@ func TestRescoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRescoreSendsAlternativesInThePythonShape(t *testing.T){
+	var sent map[string][]map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&sent)
+		json.NewEncoder(w).Encode(map[string]any{"tokens": []Decoded{{Text: "matrix", Tier: "none"}}})
+	}))
+	defer server.Close()
+
+	_, err := New(server.URL).Rescore(context.Background(), []Token{{
+		Text: "matrlx", Confidence: 0.6,
+		Alternatives: []Alternative{{Text: "matrix", Confidence: 0.3}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	alternatives, ok := sent["tokens"][0]["alternatives"].([]any)
+	if !ok || len(alternatives) != 1 {
+		t.Fatalf("want one alternative under \"alternatives\", got %+v", sent["tokens"][0])
+	}
+	first := alternatives[0].(map[string]any)
+	if first["text"] != "matrix" || first["confidence"] != 0.3 {
+		t.Errorf("want {text: matrix, confidence: 0.3}, got %+v", first)
+	}
+
+}
+
 func TestRescoreRejectsALengthMismatch(t *testing.T) {
 	// The mapping back onto the page is positional. A reply of the wrong
 	// length means that assumption is broken, and applying it would scramble

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 )
@@ -86,6 +87,7 @@ func (m *MockProvider) Recognize(ctx context.Context, image []byte) (*Result, er
 	digest := sha256.Sum256(image)
 	seed := binary.LittleEndian.Uint64(digest[:8])
 	random := &splitmix64{state: seed}
+	alternates := &splitmix64{state: seed ^  0x5bd1e9955bd1e995}
 
 	const (
 		lineHeight = 46.0
@@ -104,6 +106,8 @@ func (m *MockProvider) Recognize(ctx context.Context, image []byte) (*Result, er
 		for _, word := range strings.Fields(line) {
 			text := word
 			confidence := 0.90 + random.float()*0.09
+			var alternatives []Alternative
+
 
 			// Roughly one word in five comes back misread, and a quarter of
 			// those come back misread *and* confident. Those are the ones a
@@ -116,6 +120,9 @@ func (m *MockProvider) Recognize(ctx context.Context, image []byte) (*Result, er
 				} else {
 					confidence = 0.30 + random.float()*0.45
 				}
+				if text != word { // corrupt finds nothing to garble in some words
+					alternatives = mockAlternatives(word, text, confidence, alternates)
+				}
 			}
 
 			width := float64(len(text)) * charWidth
@@ -123,6 +130,7 @@ func (m *MockProvider) Recognize(ctx context.Context, image []byte) (*Result, er
 				Text:       text,
 				Confidence: confidence,
 				Box:        Box{X0: x, Y0: y, X1: x + width, Y1: y + 28},
+				Alternatives: alternatives,
 			})
 			raw.WriteString(text)
 			raw.WriteByte(' ')
@@ -160,4 +168,25 @@ func (s *splitmix64) next() uint64 {
 
 func (s *splitmix64) float() float64 {
 	return float64(s.next()>>11) / float64(1<<53)
+}
+
+
+func mockAlternatives(truth, read string, confidence float64, random *splitmix64) []Alternative{
+	var alternatives []Alternative
+	spare := 1 - confidence
+
+	if random.float() < 0.6{
+		alternatives = append(alternatives, Alternative{
+			Text:       truth,
+			Confidence: math.Min(spare*(0.3+0.5*random.float()), confidence*0.9),
+		})
+	}
+
+	if other := corrupt(truth, random); other != read && other != truth {
+		alternatives = append(alternatives, Alternative{
+			Text:       other,
+			Confidence: math.Min(spare*0.2*random.float(), confidence*0.9),
+		})
+	}
+	return alternatives
 }

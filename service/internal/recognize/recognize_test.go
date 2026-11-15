@@ -226,3 +226,40 @@ func TestSortReadingOrder(t *testing.T) {
 		t.Errorf("wrong reading order: %v %v %v", words[0].Text, words[1].Text, words[2].Text)
 	}
 }
+
+func TestMockOffersRunnerUpsForMisreadWords(t *testing.T){
+	truth := strings.Fields(strings.Join(defaultMockLines, " "))
+	offered, offeredTruth := 0, 0
+
+	for page := 0; page < 30; page++ {
+		result, err := NewMock().Recognize(context.Background(), []byte{byte(page)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, word := range result.Words {
+			if word.Text == truth[i] && len(word.Alternatives) > 0 {
+				t.Errorf("a word read correctly was offered runner-ups: %+v", word)
+			}
+			for _, alternative := range word.Alternatives {
+				offered++
+				if alternative.Text == truth[i] {
+					offeredTruth++
+				}
+				if alternative.Text == word.Text {
+					t.Errorf("runner-up repeats the reading: %+v", word)
+				}
+				if alternative.Confidence <= 0 || alternative.Confidence >= word.Confidence {
+					t.Errorf("runner-up must be less confident than the reading: %+v", word)
+				}
+			}
+		}
+	}
+
+	if offered == 0 {
+		t.Fatal("no runner-ups offered on 30 pages")
+	}
+	// Realistic, not a cheat sheet: the true word is often, but not always, among them.
+	if offeredTruth == 0 || offeredTruth == offered {
+		t.Errorf("want the truth in some runner-ups but not all: %d of %d", offeredTruth, offered)
+	}
+}
