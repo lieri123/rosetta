@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -14,6 +15,8 @@ const (
 
 	KindPage = "page" // preprocess, recognise and rescore one page
 )
+
+const MaxAttempts = 3
 
 type Job struct {
 	ID         int64
@@ -92,6 +95,43 @@ func (s *Store) FinishJob(ctx context.Context, id int64, state, errText string) 
 		`UPDATE jobs SET state = ?, error = ?, updated_at = ? WHERE id = ?`,
 		state, errText, now(), id)
 	return err
+}
+
+func (s *Store) AbandonExhausted(ctx context.Context) ([]Job, error) {
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, document_id, page_id, attempts FROM jobs
+		 WHERE state = ? AND attempts >= ?`, JobRunning, MaxAttempts)
+	if err != nil {
+		return nil, err
+	}
+	var jobs []Job
+	for rows.Next() {
+		var job Job
+		var pageID sql.NullInt64
+		if err := rows.Scan(&job.ID, &job.DocumentID, &pageID, &job.Attempts); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		job.PageID = pageID.Int64
+		jobs = append(jobs, job)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i := range jobs {
+		jobs[i].State = JobFailed
+		jobs[i].Error = fmt.Sprintf(
+			"gave up after %d attempts: the service stopped while processing this page each time",
+			jobs[i].Attempts)
+		if err := s.FinishJob(ctx, jobs[i].ID, JobFailed, jobs[i].Error); err != nil {
+			return nil, err
+		}
+	}
+	return jobs, nil
+
 }
 
 // RequeueRunning puts jobs that were in flight when the process died back on

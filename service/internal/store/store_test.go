@@ -275,6 +275,54 @@ func TestRequeueRunningRecoversFromACrash(t *testing.T) {
 	}
 }
 
+func TestAbandonExhaustedGivesUpAfterMaxAttempts(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	document, _ := s.CreateDocument(ctx, "Notes", "notes.png")
+	page, _ := s.CreatePage(ctx, document.ID, 0, "/tmp/page.png")
+	s.EnqueueJob(ctx, document.ID, page.ID, KindPage)
+
+	for crash := 1; crash <= MaxAttempts; crash++ {
+		if crash > 1 {
+			s.RequeueRunning(ctx)
+		}
+		if job, err := s.ClaimJob(ctx); err != nil || job == nil {
+			t.Fatalf("crash %d: could not claim: %v %v", crash, job, err)
+		}
+	}
+
+	abandoned, err := s.AbandonExhausted(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(abandoned) != 1 || abandoned[0].PageID != page.ID {
+		t.Fatalf("want the one exhausted job back, got %+v", abandoned)
+	}
+	if requeued, _ := s.RequeueRunning(ctx); requeued != 0 {
+		t.Errorf("an abandoned job must not be requeued, but %d were", requeued)
+	}
+	if failed, _ := s.CountJobs(ctx, document.ID, JobFailed); failed != 1 {
+		t.Errorf("want the job marked failed, got %d failed", failed)
+	}
+}
+
+func TestAbandonExhaustedLeavesJobsWithAttemptsLeft(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	document, _ := s.CreateDocument(ctx, "Notes", "notes.png")
+	page, _ := s.CreatePage(ctx, document.ID, 0, "/tmp/page.png")
+	s.EnqueueJob(ctx, document.ID, page.ID, KindPage)
+	s.ClaimJob(ctx) // one crash: attempts = 1
+
+	abandoned, err := s.AbandonExhausted(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(abandoned) != 0 {
+		t.Errorf("a job with attempts left was abandoned: %+v", abandoned)
+	}
+}
+
 func TestPendingJobsCountsQueuedAndRunning(t *testing.T) {
 	ctx := context.Background()
 	s := newStore(t)

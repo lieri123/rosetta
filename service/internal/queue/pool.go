@@ -59,6 +59,20 @@ func (p *Pool) Notify() {
 func (p *Pool) Start(ctx context.Context) {
 	p.init()
 
+	if abandoned, err := p.Store.AbandonExhausted(ctx); err != nil {
+		p.logf("could not check for pages that keep failing: %v", err)
+	} else {
+		for _, job := range abandoned {
+			p.logf("giving up on page %d after %d attempts", job.PageID, job.Attempts)
+			if job.PageID != 0 {
+				if err := p.Store.SetPageStatus(ctx, job.PageID, store.StatusFailed, job.Error); err != nil {
+					p.logf("marking page %d failed: %v", job.PageID, err)
+				}
+			}
+			p.finishDocument(ctx, job.DocumentID)
+		}
+	}
+
 	if requeued, err := p.Store.RequeueRunning(ctx); err != nil {
 		p.logf("could not requeue in-flight jobs: %v", err)
 	} else if requeued > 0 {
