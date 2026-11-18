@@ -47,6 +47,12 @@ int valley_threshold(const Image *im);
  * 0.2-0.5 — higher keeps less ink. */
 Image sauvola_binarize(const Image *im, int window, double k);
 
+/* The window sauvola_binarize actually uses for a w x h image when asked for
+ * `requested`: <= 0 means about 1/40 of the long edge, and the result is always
+ * odd and at least 3. Exposed so the report can say what was used, not what
+ * was asked for. */
+int sauvola_window(int w, int h, int requested);
+
 /* Fraction of pixels below `threshold`. Used to sanity check a binarisation
  * before trusting it downstream. */
 double img_ink_fraction(const Image *im, int threshold);

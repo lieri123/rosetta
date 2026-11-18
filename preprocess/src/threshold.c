@@ -165,20 +165,27 @@ int valley_threshold(const Image *im)
     return valley;
 }
 
+int sauvola_window(int w, int h, int requested)
+{
+    int window = requested;
+    if (window <= 0) {
+        /* A window of roughly 1/40 of the long edge lands near two x-heights
+         * for a page photographed at a sane resolution, which is the range
+         * Sauvola behaves best in. */
+        int longest = w > h ? w : h;
+        window = longest / 40;
+    }
+    if (window < 3) window = 3;
+    if ((window & 1) == 0) window += 1;
+    return window;
+}
+
 Image sauvola_binarize(const Image *im, int window, double k)
 {
     Image out = {0, 0, NULL};
     if (!img_ok(im)) return out;
 
-    if (window <= 0) {
-        /* A window of roughly 1/40 of the long edge lands near two x-heights
-         * for a page photographed at a sane resolution, which is the range
-         * Sauvola behaves best in. */
-        int longest = im->w > im->h ? im->w : im->h;
-        window = longest / 40;
-    }
-    if (window < 3) window = 3;
-    if ((window & 1) == 0) window += 1;
+    window = sauvola_window(im->w, im->h, window);
     if (k <= 0.0) k = 0.34;
 
     Integral it = integral_build(im);

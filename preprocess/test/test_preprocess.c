@@ -509,12 +509,31 @@ static void test_downscale_preserves_brightness(void)
     img_free(&im);
 }
 
+static void test_sauvola_window_is_the_one_used(void)
+{
+    current_test = "sauvola_window_is_the_one_used";
+
+    /* Auto (<= 0): about 1/40 of the long edge, made odd. */
+    CHECK(sauvola_window(900, 1200, 0) == 31, "auto on 900x1200: got %d, want 31",
+          sauvola_window(900, 1200, 0));
+    CHECK(sauvola_window(900, 1200, -5) == 31, "negative should mean auto: got %d",
+          sauvola_window(900, 1200, -5));
+    /* Tiny images still get the smallest usable window. */
+    CHECK(sauvola_window(80, 60, 0) == 3, "auto on 80x60: got %d, want 3",
+          sauvola_window(80, 60, 0));
+    /* Explicit sizes are kept, rounded up to odd, and never below 3. */
+    CHECK(sauvola_window(900, 1200, 25) == 25, "25: got %d", sauvola_window(900, 1200, 25));
+    CHECK(sauvola_window(900, 1200, 24) == 25, "24: got %d", sauvola_window(900, 1200, 24));
+    CHECK(sauvola_window(900, 1200, 1) == 3, "1: got %d", sauvola_window(900, 1200, 1));
+}
+
 int main(void)
 {
     test_homography_roundtrip();
     test_integral_matches_bruteforce();
     test_otsu_splits_bimodal();
     test_sauvola_survives_shading();
+    test_sauvola_window_is_the_one_used();
     test_skew_estimation();
     test_blank_page_is_not_deskewed();
     test_rotation_roundtrip();
