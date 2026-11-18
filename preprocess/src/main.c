@@ -179,7 +179,8 @@ int main(int argc, char **argv)
 
     /* Deskew needs a binary view to measure ink; binarise once here and reuse
      * the result as the output when thresholding is enabled. */
-    Image binary = sauvola_binarize(&page, o.window, o.k);
+    int window_used = sauvola_window(page.w, page.h, o.window);
+    Image binary = sauvola_binarize(&page, window_used, o.k);
     if (!img_ok(&binary)) {
         fprintf(stderr, "error: binarisation failed (out of memory?)\n");
         img_free(&page);
@@ -275,7 +276,7 @@ int main(int argc, char **argv)
         fprintf(jf, ",\n  \"deskew\": {\"applied\": %s, \"angle_deg\": %.3f}",
                 deskewed ? "true" : "false", deskewed ? -skew : 0.0);
         fprintf(jf, ",\n  \"binarize\": {\"applied\": %s, \"k\": %.3f, \"window\": %d}",
-                o.do_threshold ? "true" : "false", o.k, o.window);
+                o.do_threshold ? "true" : "false", o.k, window_used);
 
         fputs(",\n  \"rules\": [", jf);
         for (int i = 0; i < rules.count; i++) {
